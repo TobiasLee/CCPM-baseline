@@ -46,8 +46,6 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version
 
 
-# Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.13.0.dev0")
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +173,8 @@ class DataCollatorForMultipleChoice:
     pad_to_multiple_of: Optional[int] = None
 
     def __call__(self, features):
-        label_name = "answer"
+        label_name = "labels"
+        # print(features[0].keys())
         labels = [feature.pop(label_name) for feature in features]
         batch_size = len(features)
         num_choices = len(features[0]["input_ids"])
@@ -299,7 +298,7 @@ def main():
     # When using your own dataset or a different dataset from swag, you will probably need to change this.
     ending_names = [f"ending{i}" for i in range(4)]
     context_name = "translation"
-    answer_name = "choices"
+    choice_name = "choices"
 
     if data_args.max_seq_length is None:
         max_seq_length = tokenizer.model_max_length
@@ -321,7 +320,7 @@ def main():
     def preprocess_function(examples):
         translation = [[context] * 4 for context in examples[context_name]]
         classic_poetry = [
-            [c for c in choices] for choices in examples[answer_name]
+            [c for c in choices] for choices in examples[choice_name]
         ]
 
         # Flatten out
@@ -336,8 +335,13 @@ def main():
             max_length=max_seq_length,
             padding="max_length" if data_args.pad_to_max_length else False,
         )
+        results = {}
+        results.update({k: [v[i : i + 4] for i in range(0, len(v), 4)] for k, v in tokenized_examples.items()})
+        results['labels'] = [ answer for answer in examples['answer']]
+        # print(results)
         # Un-flatten
-        return {k: [v[i : i + 4] for i in range(0, len(v), 4)] for k, v in tokenized_examples.items()}
+        return results 
+
 
     if training_args.do_train:
         if "train" not in raw_datasets:
